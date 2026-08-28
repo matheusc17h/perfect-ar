@@ -4,8 +4,8 @@ cd /d "%~dp0"
 
 if not exist "dist\index.html" (
   echo.
-  echo  A pasta "dist" nao existe ainda.
-  echo  Abra o PowerShell nesta pasta e rode:  npm install  e depois  npm run build
+  echo  A pasta "dist" ainda nao foi gerada.
+  echo  Abra o PowerShell nesta pasta e rode:  npm install   e depois   npm run build
   echo.
   pause
   exit /b 1
@@ -21,9 +21,18 @@ echo.
 
 start "" "http://localhost:8080"
 
-where python >/dev/null 2>/dev/null && ( python -m http.server 8080 --directory dist & goto :eof )
-where py >/dev/null 2>/dev/null && ( py -m http.server 8080 --directory dist & goto :eof )
-where npx >/dev/null 2>/dev/null && ( npx --yes serve -l 8080 dist & goto :eof )
+python --version >nul 2>&1
+if %errorlevel%==0 (
+  python -m http.server 8080 --directory dist
+  goto :done
+)
 
-echo Nao encontrei Python nem Node para iniciar o servidor.
-pause
+py --version >nul 2>&1
+if %errorlevel%==0 (
+  py -m http.server 8080 --directory dist
+  goto :done
+)
+
+npx --yes serve -l 8080 dist
+
+:done
