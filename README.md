@@ -8,19 +8,26 @@ instalação de aparelhos. Orçamentos pelo WhatsApp.
 - Vite 5 + HTML/CSS/JS puro (sem framework)
 - Fontes: Montserrat + Inter (Google Fonts)
 
-## Rodar localmente
+## COMO ABRIR O SITE (jeito fácil)
+Dê **dois cliques** no arquivo **`ABRIR-SITE.bat`** nesta pasta.
+Ele inicia o site e abre o navegador em `http://localhost:8080`.
+Para fechar o site, feche a janela preta que aparecer.
+
+> Já vem tudo pronto na pasta `dist/`. Não precisa instalar nada
+> (usa o Python que já está no computador; se não houver, usa o Node).
+
+## Editar o site (para desenvolvedor)
 ```bash
 npm install
-npm run dev
+npm run dev      # modo edição, http://localhost:5174/
+npm run build    # regenera a pasta dist/ (a versão final)
+npm run preview  # testa a pasta dist/ em http://localhost:4173/
 ```
-Abre em http://localhost:5174/
 
-## Build de produção
-```bash
-npm run build
-npm run preview
-```
-O site final fica na pasta `dist/`.
+## Pasta `dist/` = versão final portátil
+É o site pronto em HTML/CSS/JS. Pode copiar essa pasta para um pen drive,
+outro computador, ou subir num serviço de hospedagem (Netlify, Vercel, etc.)
+para ter um link público.
 
 ## Estrutura das seções
 | Seção | O que é |
