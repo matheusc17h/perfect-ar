@@ -46,6 +46,7 @@ const CASCADE_SELECTOR = [
   '.cta-final .kicker', '.cta-final h2', '.cta-final p'
 ].join(',');
 
+const START_AT = 0.7;     // a cascata começa quando o topo da seção chega a 70% da altura da tela
 const ANIM_SHARE = 0.62;  // quanto da fatia é animação; o resto (0.38) é a pausa até o próximo
 const RISE = 26;          // px que o item sobe ao entrar
 
@@ -84,8 +85,8 @@ function paint() {
     const n = g.items.length;
     // faixa de rolagem da cascata: proporcional ao tamanho da seção, com um mínimo
     const span = Math.max(g.height * 0.75, vh * 0.85);
-    // 0 quando o topo da seção chega à metade da tela; 1 no fim da faixa
-    const progress = clamp01((scrollY - (g.top - vh * 0.5)) / span);
+    // 0 quando o topo da seção chega a 70% da altura da tela; 1 no fim da faixa
+    const progress = clamp01((scrollY - (g.top - vh * START_AT)) / span);
 
     for (let i = 0; i < n; i++) {
       const el = g.items[i];
