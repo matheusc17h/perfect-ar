@@ -57,6 +57,7 @@ const RISE = 26;          // px que o item sobe ao entrar
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const groups = [];
+let maxScroll = 0;
 
 /* ---------- Hero: sequência letra a letra no carregamento (GSAP + SplitText) ----------
    O hero já está na tela quando a página abre (não existe rolagem antes dele), então
@@ -118,8 +119,11 @@ function paint() {
     const n = g.items.length;
     // começa quando o topo da seção entra na tela...
     const startY = g.top - vh * START_AT;
-    // ...e termina quando a seção está em 50%: aqui tudo dela já apareceu
-    const endY = g.top + g.height * DONE_AT - vh * 0.5;
+    // ...e termina quando a seção está em 50%: aqui tudo dela já apareceu.
+    // O limite em maxScroll é essencial: na última seção não existe rolagem
+    // suficiente pra levar o meio dela ao meio da tela, e sem isso o progresso
+    // nunca chegaria a 1 — os últimos itens ficavam travados meio transparentes.
+    const endY = Math.min(g.top + g.height * DONE_AT - vh * 0.5, maxScroll);
     const progress = clamp01((scrollY - startY) / Math.max(endY - startY, 1));
 
     for (let i = 0; i < n; i++) {
@@ -142,6 +146,8 @@ function paint() {
 
 function measure() {
   const scrollY = window.scrollY;
+  // guardado aqui pra não fazer leitura de layout a cada frame da rolagem
+  maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0);
   for (const g of groups) {
     g.top = g.section.getBoundingClientRect().top + scrollY;
     g.height = g.section.offsetHeight;
@@ -165,6 +171,13 @@ if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   window.addEventListener('scroll', onScrollPaint, { passive: true });
   window.addEventListener('resize', measure);
   window.addEventListener('load', measure);
+
+  // Se a altura da página mudar depois (vídeo, imagem ou fonte terminando de
+  // carregar), as posições em cache ficam erradas e o progresso para no meio.
+  // O ResizeObserver só dispara quando o tamanho realmente muda, então é barato.
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(measure).observe(document.body);
+  }
 }
 
 /* ---------- Comparador antes / depois ---------- */
