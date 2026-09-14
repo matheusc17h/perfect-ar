@@ -8,26 +8,6 @@ gsap.registerPlugin(SplitText);
 const yearEl = document.getElementById('year');
 if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-/* ---------- Vídeo do hero: corte vertical no celular ----------
-   O video deitado, numa caixa estreita e alta, fica muito ampliado (o cover corta
-   as laterais). No celular, entra na frente um corte em pé: public/media/hero-bg-vertical.mp4
-   Se esse arquivo não existir, o navegador simplesmente usa o próximo <source>
-   (o horizontal), então não quebra nada enquanto ele não estiver lá.
-   O caminho é derivado do que já está no HTML pra respeitar o base './' do build. */
-const heroVideo = document.getElementById('heroVideo');
-if (heroVideo && window.matchMedia('(max-width: 640px)').matches) {
-  const firstSource = heroVideo.querySelector('source');
-  const horizontal = firstSource && firstSource.getAttribute('src');
-  if (horizontal && horizontal.includes('hero-bg.mp4')) {
-    const vertical = document.createElement('source');
-    vertical.type = 'video/mp4';
-    vertical.src = horizontal.replace('hero-bg.mp4', 'hero-bg-vertical.mp4');
-    heroVideo.insertBefore(vertical, firstSource);
-    heroVideo.load(); // reavalia a lista de <source> com o vertical na frente
-    heroVideo.play().catch(() => {}); // autoplay pode ser bloqueado; o poster cobre
-  }
-}
-
 /* ---------- Header com sombra ao rolar ---------- */
 const header = document.querySelector('.site-header');
 const onScroll = () => header.classList.toggle('is-scrolled', window.scrollY > 8);
