@@ -30,12 +30,13 @@ nav.addEventListener('click', (e) => {
 });
 
 /* ---------- Revelação conduzida pela POSIÇÃO DO SCROLL (sem bibliotecas) ----------
-   Cada seção recebe uma faixa de rolagem que começa quando o topo dela chega à
-   metade da tela. Essa faixa é dividida em fatias — uma por item, na ordem do HTML.
-   Então o item 1 aparece na primeira fatia de rolagem, o item 2 na segunda, etc.:
-   é a rolagem que controla, não o tempo. Rolar de volta pra cima desfaz.
-   Itens lado a lado (os 4 cards, os 3 chips) ficam em fatias diferentes, por isso
-   aparecem um de cada vez mesmo estando na mesma altura da tela.
+   Cada seção tem uma faixa de rolagem que vai de "o topo da seção entra na tela"
+   até "a seção está em 50%" (o meio dela no meio da tela) — nesse ponto TUDO da
+   seção já está revelado. A faixa é dividida em fatias, uma por item na ordem do
+   HTML: o item 1 aparece na 1ª fatia de rolagem, o item 2 na 2ª, e assim por diante.
+   É a rolagem que controla, não o tempo. Rolar de volta pra cima desfaz.
+   Itens lado a lado (os 4 cards) ficam em fatias diferentes, por isso aparecem um
+   de cada vez mesmo estando na mesma altura da tela.
    Não lê layout durante a rolagem (posições ficam em cache) → leve no celular. */
 const CASCADE_SELECTOR = [
   '.section__head .kicker', '.section__head h2', '.section__head p',
@@ -49,7 +50,8 @@ const CASCADE_SELECTOR = [
   '.cta-final .kicker', '.cta-final h2', '.cta-final p'
 ].join(',');
 
-const START_AT = 0.6;     // a cascata começa quando o topo da seção chega a 60% da altura da tela
+const START_AT = 0.85;    // progresso 0: topo da seção a 85% da tela (começando a entrar)
+const DONE_AT = 0.5;      // progresso 1: seção em 50% (meio dela no meio da tela) → tudo revelado
 const ANIM_SHARE = 0.62;  // quanto da fatia é animação; o resto (0.38) é a pausa até o próximo
 const RISE = 26;          // px que o item sobe ao entrar
 
@@ -114,10 +116,11 @@ function paint() {
 
   for (const g of groups) {
     const n = g.items.length;
-    // faixa de rolagem da cascata: proporcional ao tamanho da seção, com um mínimo
-    const span = Math.max(g.height * 0.75, vh * 0.85);
-    // 0 quando o topo da seção chega a 60% da altura da tela; 1 no fim da faixa
-    const progress = clamp01((scrollY - (g.top - vh * START_AT)) / span);
+    // começa quando o topo da seção entra na tela...
+    const startY = g.top - vh * START_AT;
+    // ...e termina quando a seção está em 50%: aqui tudo dela já apareceu
+    const endY = g.top + g.height * DONE_AT - vh * 0.5;
+    const progress = clamp01((scrollY - startY) / Math.max(endY - startY, 1));
 
     for (let i = 0; i < n; i++) {
       const el = g.items[i];
