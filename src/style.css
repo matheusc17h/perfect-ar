@@ -754,6 +754,11 @@ a { color: inherit; text-decoration: none; }
   .wa-float { right: 16px; bottom: 16px; }
 }
 
+@media (max-width: 640px) {
+  /* com o corte vertical o enquadramento já vem certo, então centraliza */
+  .hero__video { object-position: center center; }
+}
+
 @media (max-width: 380px) {
   .container { padding: 0 16px; }
   .brand__text small { display: none; }         /* evita aperto no cabeçalho em telas bem estreitas */
