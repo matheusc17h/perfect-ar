@@ -25,20 +25,115 @@ nav.addEventListener('click', (e) => {
   }
 });
 
-/* ---------- Reveal on scroll ---------- */
-const revealEls = document.querySelectorAll('.reveal');
-if ('IntersectionObserver' in window) {
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-visible');
-        io.unobserve(entry.target);
+/* ---------- Revelação conduzida pela POSIÇÃO DO SCROLL (sem bibliotecas) ----------
+   Cada seção recebe uma faixa de rolagem que começa quando o topo dela chega à
+   metade da tela. Essa faixa é dividida em fatias — uma por item, na ordem do HTML.
+   Então o item 1 aparece na primeira fatia de rolagem, o item 2 na segunda, etc.:
+   é a rolagem que controla, não o tempo. Rolar de volta pra cima desfaz.
+   Itens lado a lado (os 4 cards, os 3 chips) ficam em fatias diferentes, por isso
+   aparecem um de cada vez mesmo estando na mesma altura da tela.
+   Não lê layout durante a rolagem (posições ficam em cache) → leve no celular. */
+const CASCADE_SELECTOR = [
+  '.hero__eyebrow', '.hero__title', '.hero__lead', '.hero__chips li',
+  '.section__head .kicker', '.section__head h2', '.section__head p',
+  '.card',
+  '.why',
+  '.benefits li',
+  '.ba',
+  '.video-block__media',
+  '.video-block__text .kicker', '.video-block__text h2', '.video-block__text p', '.ticks li',
+  '.about__text p',
+  '.cta-final .kicker', '.cta-final h2', '.cta-final p'
+].join(',');
+
+const ANIM_SHARE = 0.62;  // quanto da fatia é animação; o resto (0.38) é a pausa até o próximo
+const RISE = 26;          // px que o item sobe ao entrar
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const groups = [];
+
+// O hero já está na tela quando a página abre (não existe rolagem antes dele),
+// então ali a sequência é por tempo: um item de cada vez, com pausa entre eles.
+const HERO_STEP = 620;      // ms entre um item e o próximo
+const HERO_DURATION = 900;  // ms de animação de cada item
+const hero = document.querySelector('.hero');
+const heroItems = hero ? Array.from(hero.querySelectorAll(CASCADE_SELECTOR)) : [];
+
+heroItems.forEach((el, i) => {
+  el.classList.add('reveal');
+  el.style.transitionDuration = HERO_DURATION + 'ms';
+  el.style.transitionDelay = i * HERO_STEP + 'ms';
+});
+
+document.querySelectorAll('main > section').forEach((section) => {
+  if (section.classList.contains('hero')) return; // hero é por tempo (acima)
+  const items = Array.from(section.querySelectorAll(CASCADE_SELECTOR));
+  if (!items.length) return;
+  items.forEach((el) => {
+    el.classList.add('reveal');
+    el.style.transition = 'none'; // a rolagem controla o valor direto, sem transição por tempo
+  });
+  groups.push({ section, items, top: 0, height: 0 });
+});
+
+function paint() {
+  const scrollY = window.scrollY;
+  const vh = window.innerHeight;
+
+  for (const g of groups) {
+    const n = g.items.length;
+    // faixa de rolagem da cascata: proporcional ao tamanho da seção, com um mínimo
+    const span = Math.max(g.height * 0.75, vh * 0.85);
+    // 0 quando o topo da seção chega à metade da tela; 1 no fim da faixa
+    const progress = clamp01((scrollY - (g.top - vh * 0.5)) / span);
+
+    for (let i = 0; i < n; i++) {
+      const el = g.items[i];
+      const p = clamp01((progress - i / n) / (ANIM_SHARE / n));
+      if (el._p === p) continue;
+      el._p = p;
+      if (p === 1) {
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.classList.add('is-visible');
+      } else {
+        el.classList.remove('is-visible');
+        el.style.opacity = String(p);
+        el.style.transform = `translate3d(0, ${((1 - p) * RISE).toFixed(1)}px, 0)`;
       }
-    });
-  }, { threshold: 0.14 });
-  revealEls.forEach((el) => io.observe(el));
+    }
+  }
+}
+
+function measure() {
+  const scrollY = window.scrollY;
+  for (const g of groups) {
+    g.top = g.section.getBoundingClientRect().top + scrollY;
+    g.height = g.section.offsetHeight;
+  }
+  paint();
+}
+
+let ticking = false;
+const onScrollPaint = () => {
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(() => { ticking = false; paint(); });
+};
+
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  heroItems.forEach((el) => { el.style.transitionDelay = '0ms'; el.classList.add('is-visible'); });
+  groups.forEach((g) => g.items.forEach((el) => el.classList.add('is-visible')));
 } else {
-  revealEls.forEach((el) => el.classList.add('is-visible'));
+  // hero: dispara a cascata por tempo logo após a primeira pintura
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => heroItems.forEach((el) => el.classList.add('is-visible')));
+  });
+
+  measure();
+  window.addEventListener('scroll', onScrollPaint, { passive: true });
+  window.addEventListener('resize', measure);
+  window.addEventListener('load', measure);
 }
 
 /* ---------- Comparador antes / depois ---------- */
@@ -84,84 +179,3 @@ document.querySelectorAll('[data-ba]').forEach((ba) => {
     handle.setAttribute('aria-valuenow', String(Math.round(next)));
   });
 });
-
-/* ---------- Entrada de texto no scroll (GSAP + SplitText) ----------
-   Ao entrar na tela, a seção toca UMA vez uma sequência: os elementos entram
-   na ordem do HTML, um de cada vez (kicker → h2 → p → h3 → ...). Títulos e textos
-   curtos entram com as letras subindo (y:40 → 0 + fade); o resto com um fade suave. */
-function initSplitReveal() {
-  const gsap = window.gsap;
-  const ScrollTrigger = window.ScrollTrigger;
-  const SplitText = window.SplitText;
-  if (!gsap || !ScrollTrigger || !SplitText) return; // CDN indisponível → fallback CSS/IntersectionObserver
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  gsap.registerPlugin(ScrollTrigger, SplitText);
-  document.documentElement.classList.add('gsap-ready');
-
-  // Títulos / textos curtos → letra a letra
-  const charSel = [
-    '.hero__title',
-    '.section__head .kicker', '.section__head h2',
-    '.card h3', '.card__tag',
-    '.why h3',
-    '.benefits li',
-    '.video-block__text .kicker', '.video-block__text h2', '.ticks li',
-    '.cta-final .kicker', '.cta-final h2',
-    '.hero__chips li'
-  ].join(',');
-  // Parágrafos / blocos maiores → fade suave subindo
-  const fadeSel = [
-    '.hero__eyebrow', '.hero__lead',
-    '.section__head p',
-    '.card p', '.why p',
-    '.video-block__text p', '.video-block__media',
-    '.about__text p',
-    '.ba',
-    '.cta-final p'
-  ].join(',');
-  const allSel = charSel + ',' + fadeSel;
-
-  // Uma timeline por seção → garante a ordem e o "um de cada vez"
-  gsap.utils.toArray('main > section').forEach((section) => {
-    const items = gsap.utils.toArray(section.querySelectorAll(allSel)); // já vem na ordem do DOM
-    if (!items.length) return;
-
-    const tl = gsap.timeline({
-      scrollTrigger: { trigger: section, start: 'top 78%', once: true }
-    });
-
-    items.forEach((el, i) => {
-      const pos = i === 0 ? 0 : '<0.28'; // cada um começa 0,28s depois do anterior (cascata na hierarquia)
-      if (el.matches(charSel) && el.textContent.trim()) {
-        const split = SplitText.create(el, { type: 'words,chars', charsClass: 'gsap-char' });
-        tl.from(split.chars, {
-          y: 40,
-          opacity: 0,
-          duration: 0.5,
-          ease: 'power3.out',
-          stagger: { amount: Math.min(0.7, split.chars.length * 0.035) }
-        }, pos);
-      } else {
-        tl.from(el, {
-          y: 24,
-          opacity: 0,
-          duration: 0.55,
-          ease: 'power2.out'
-        }, pos);
-      }
-    });
-  });
-
-  ScrollTrigger.refresh();
-}
-
-// Espera as fontes carregarem para não dividir as letras com a métrica errada
-if (document.fonts && document.fonts.ready) {
-  Promise.race([
-    document.fonts.ready,
-    new Promise((resolve) => setTimeout(resolve, 2000))
-  ]).then(initSplitReveal);
-} else {
-  initSplitReveal();
-}
