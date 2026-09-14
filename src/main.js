@@ -1,4 +1,8 @@
 import './style.css';
+import gsap from 'gsap';
+import { SplitText } from 'gsap/SplitText';
+
+gsap.registerPlugin(SplitText);
 
 /* ---------- Ano no rodapé ---------- */
 const yearEl = document.getElementById('year');
@@ -34,7 +38,6 @@ nav.addEventListener('click', (e) => {
    aparecem um de cada vez mesmo estando na mesma altura da tela.
    Não lê layout durante a rolagem (posições ficam em cache) → leve no celular. */
 const CASCADE_SELECTOR = [
-  '.hero__eyebrow', '.hero__title', '.hero__lead', '.hero__chips li',
   '.section__head .kicker', '.section__head h2', '.section__head p',
   '.card',
   '.why',
@@ -53,18 +56,46 @@ const RISE = 26;          // px que o item sobe ao entrar
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const groups = [];
 
-// O hero já está na tela quando a página abre (não existe rolagem antes dele),
-// então ali a sequência é por tempo: um item de cada vez, com pausa entre eles.
-const HERO_STEP = 620;      // ms entre um item e o próximo
-const HERO_DURATION = 900;  // ms de animação de cada item
-const hero = document.querySelector('.hero');
-const heroItems = hero ? Array.from(hero.querySelectorAll(CASCADE_SELECTOR)) : [];
+/* ---------- Hero: sequência letra a letra no carregamento (GSAP + SplitText) ----------
+   O hero já está na tela quando a página abre (não existe rolagem antes dele), então
+   aqui a sequência roda no load: tudo começa invisível e aparece um item de cada vez,
+   na ordem — selo → título → texto → botão 1 → botão 2 → os 3 chips.
+   Títulos/textos/chips entram letra a letra; os botões (que têm ícone SVG dentro)
+   entram inteiros. O GSAP vem no bundle do site, não de CDN — sem depender de rede. */
+const HERO_ORDER = '.hero__eyebrow, .hero__title, .hero__lead, .hero__actions .btn, .hero__chips li';
+const HERO_CHARS = '.hero__title, .hero__lead, .hero__chips li'; // esses vão letra a letra
+const HERO_GAP = '>+0.08';   // pausa entre um item e o próximo (depois que o anterior termina)
+const HERO_DUR = 0.4;        // duração da entrada de cada letra / item
+const HERO_SPREAD = 0.4;     // teto do espalhamento das letras de um mesmo texto
 
-heroItems.forEach((el, i) => {
-  el.classList.add('reveal');
-  el.style.transitionDuration = HERO_DURATION + 'ms';
-  el.style.transitionDelay = i * HERO_STEP + 'ms';
-});
+const hero = document.querySelector('.hero');
+const heroItems = hero ? Array.from(hero.querySelectorAll(HERO_ORDER)) : [];
+
+function initHeroSequence() {
+  const tl = gsap.timeline({ defaults: { ease: 'power2.out', force3D: true } });
+
+  heroItems.forEach((el, i) => {
+    const pos = i === 0 ? 0 : HERO_GAP;
+
+    if (el.matches(HERO_CHARS) && el.textContent.trim()) {
+      const split = SplitText.create(el, { type: 'words,chars', charsClass: 'gsap-char' });
+      tl.from(split.chars, {
+        y: 22,
+        opacity: 0,
+        duration: HERO_DUR,
+        immediateRender: true, // esconde já na criação, senão o item pisca antes de animar
+        stagger: { amount: Math.min(HERO_SPREAD, split.chars.length * 0.02) }
+      }, pos);
+    } else {
+      tl.from(el, {
+        y: 16,
+        opacity: 0,
+        duration: HERO_DUR,
+        immediateRender: true
+      }, pos);
+    }
+  });
+}
 
 document.querySelectorAll('main > section').forEach((section) => {
   if (section.classList.contains('hero')) return; // hero é por tempo (acima)
@@ -123,13 +154,9 @@ const onScrollPaint = () => {
 };
 
 if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  heroItems.forEach((el) => { el.style.transitionDelay = '0ms'; el.classList.add('is-visible'); });
   groups.forEach((g) => g.items.forEach((el) => el.classList.add('is-visible')));
 } else {
-  // hero: dispara a cascata por tempo logo após a primeira pintura
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => heroItems.forEach((el) => el.classList.add('is-visible')));
-  });
+  initHeroSequence();
 
   measure();
   window.addEventListener('scroll', onScrollPaint, { passive: true });

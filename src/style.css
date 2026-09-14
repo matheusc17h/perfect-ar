@@ -682,6 +682,9 @@ a { color: inherit; text-decoration: none; }
 }
 .reveal.is-visible { opacity: 1; transform: none; }
 
+/* letras geradas pelo SplitText na sequência do hero */
+.gsap-char { display: inline-block; }
+
 /* ---------- Responsivo ---------- */
 @media (max-width: 1100px) {
   .nav { gap: 20px; }
