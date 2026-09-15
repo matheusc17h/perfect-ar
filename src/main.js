@@ -104,10 +104,7 @@ document.querySelectorAll('main > section').forEach((section) => {
   if (section.classList.contains('hero')) return; // hero é por tempo (acima)
   const items = Array.from(section.querySelectorAll(CASCADE_SELECTOR));
   if (!items.length) return;
-  items.forEach((el) => {
-    el.classList.add('reveal');
-    el.style.transition = 'none'; // a rolagem controla o valor direto, sem transição por tempo
-  });
+  items.forEach((el) => el.classList.add('reveal'));
   groups.push({ section, items, top: 0, height: 0 });
 });
 
@@ -134,9 +131,11 @@ function paint() {
       if (p === 1) {
         el.style.opacity = '';
         el.style.transform = '';
+        el.style.transition = ''; // devolve a transition do CSS → hover volta a ser suave
         el.classList.add('is-visible');
       } else {
         el.classList.remove('is-visible');
+        el.style.transition = 'none'; // durante a revelação é a rolagem que manda
         el.style.opacity = String(p);
         el.style.transform = `translate3d(0, ${((1 - p) * RISE).toFixed(1)}px, 0)`;
       }
