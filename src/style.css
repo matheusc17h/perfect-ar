@@ -349,7 +349,8 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .card:hover,
   .card--feature:hover,
-  .why:hover { animation: none; transform: translateY(-8px); }
+  .why:hover,
+  .benefits li:hover { animation: none; transform: translateY(-8px); }
 }
 .card:hover h3,
 .card:hover p,
@@ -480,8 +481,17 @@ a { color: inherit; text-decoration: none; }
   padding: 10px 18px;
   border-radius: 999px;
   box-shadow: var(--shadow-sm);
+  transition: transform .22s var(--ease), box-shadow .22s var(--ease), border-color .22s, background .22s, color .22s;
 }
 .benefits li span { color: var(--azure-400); }
+.benefits li:hover {
+  background: #0F305A;
+  border-color: rgba(255, 255, 255, .2);
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(15, 48, 90, 0.18); /* menor que o dos cards, proporcional à pílula */
+  animation: card-float 2.4s var(--ease) infinite;
+}
+.benefits li:hover span { color: var(--azure-300); } /* azure-400 fica escuro no fundo navy */
 
 /* ---------- Antes / Depois ---------- */
 .ba-grid {
