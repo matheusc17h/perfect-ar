@@ -30,13 +30,14 @@ nav.addEventListener('click', (e) => {
 });
 
 /* ---------- Revelação conduzida pela POSIÇÃO DO SCROLL (sem bibliotecas) ----------
-   Cada seção tem uma faixa de rolagem que vai de "o topo da seção entra na tela"
-   até "a seção está em 50%" (o meio dela no meio da tela) — nesse ponto TUDO da
-   seção já está revelado. A faixa é dividida em fatias, uma por item na ordem do
-   HTML: o item 1 aparece na 1ª fatia de rolagem, o item 2 na 2ª, e assim por diante.
+   Cada item tem sua própria faixa de rolagem, ancorada na posição dele: começa a
+   aparecer ao entrar pela base da tela e está completo ao chegar em ~55% da altura
+   da tela. Ancorar no item (e não na seção) garante que a animação aconteça onde o
+   usuário está olhando, inclusive nos itens do fim de seções altas.
    É a rolagem que controla, não o tempo. Rolar de volta pra cima desfaz.
-   Itens lado a lado (os 4 cards) ficam em fatias diferentes, por isso aparecem um
-   de cada vez mesmo estando na mesma altura da tela.
+   Vizinhos de mesma altura (os 4 cards, as pílulas de benefícios) cruzariam a marca
+   no mesmo instante, então cada um ganha um deslocamento extra de rolagem (ROW_STEP)
+   — é isso que faz eles aparecerem um de cada vez.
    Não lê layout durante a rolagem (posições ficam em cache) → leve no celular. */
 const CASCADE_SELECTOR = [
   '.section__head .kicker', '.section__head h2', '.section__head p',
@@ -50,13 +51,13 @@ const CASCADE_SELECTOR = [
   '.cta-final .kicker', '.cta-final h2', '.cta-final p'
 ].join(',');
 
-const START_AT = 0.85;    // progresso 0: topo da seção a 85% da tela (começando a entrar)
-const DONE_AT = 0.5;      // progresso 1: seção em 50% (meio dela no meio da tela) → tudo revelado
-const ANIM_SHARE = 0.62;  // quanto da fatia é animação; o resto (0.38) é a pausa até o próximo
+const ITEM_START = 0.95;  // começa a aparecer quando o item entra pela base da tela
+const ITEM_DONE = 0.55;   // está 100% visível quando chega a 55% da altura da tela
+const ROW_STEP = 110;     // px de rolagem entre vizinhos de mesma altura
 const RISE = 26;          // px que o item sobe ao entrar
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-const groups = [];
+const items = [];
 let maxScroll = 0;
 
 /* ---------- Hero: sequência letra a letra no carregamento (GSAP + SplitText) ----------
@@ -102,43 +103,44 @@ function initHeroSequence() {
 
 document.querySelectorAll('main > section').forEach((section) => {
   if (section.classList.contains('hero')) return; // hero é por tempo (acima)
-  const items = Array.from(section.querySelectorAll(CASCADE_SELECTOR));
-  if (!items.length) return;
-  items.forEach((el) => el.classList.add('reveal'));
-  groups.push({ section, items, top: 0, height: 0 });
+  section.querySelectorAll(CASCADE_SELECTOR).forEach((el) => {
+    el.classList.add('reveal');
+    items.push({ el, top: 0, order: 0 });
+  });
 });
 
 function paint() {
   const scrollY = window.scrollY;
   const vh = window.innerHeight;
 
-  for (const g of groups) {
-    const n = g.items.length;
-    // começa quando o topo da seção entra na tela...
-    const startY = g.top - vh * START_AT;
-    // ...e termina quando a seção está em 50%: aqui tudo dela já apareceu.
-    // O limite em maxScroll é essencial: na última seção não existe rolagem
-    // suficiente pra levar o meio dela ao meio da tela, e sem isso o progresso
-    // nunca chegaria a 1 — os últimos itens ficavam travados meio transparentes.
-    const endY = Math.min(g.top + g.height * DONE_AT - vh * 0.5, maxScroll);
-    const progress = clamp01((scrollY - startY) / Math.max(endY - startY, 1));
+  for (const it of items) {
+    // Cada item é ancorado na PRÓPRIA posição: começa a aparecer quando entra
+    // pela base da tela e está completo ao chegar em ~55% da altura da tela.
+    // Assim a animação acontece onde o usuário está olhando, inclusive nos itens
+    // do fim de seções altas (a lista de benefícios, por exemplo).
+    // `order` desloca os vizinhos de mesma altura (os 4 cards, as pílulas),
+    // que cruzariam a mesma marca no mesmo instante — é o que faz um de cada vez.
+    const shift = it.order * ROW_STEP;
+    const startY = it.top - vh * ITEM_START + shift;
+    // sem o limite em maxScroll, itens perto do fim da página nunca chegariam
+    // a 55% da tela e ficariam travados meio transparentes
+    const endY = Math.min(it.top - vh * ITEM_DONE + shift, maxScroll);
 
-    for (let i = 0; i < n; i++) {
-      const el = g.items[i];
-      const p = clamp01((progress - i / n) / (ANIM_SHARE / n));
-      if (el._p === p) continue;
-      el._p = p;
-      if (p === 1) {
-        el.style.opacity = '';
-        el.style.transform = '';
-        el.style.transition = ''; // devolve a transition do CSS → hover volta a ser suave
-        el.classList.add('is-visible');
-      } else {
-        el.classList.remove('is-visible');
-        el.style.transition = 'none'; // durante a revelação é a rolagem que manda
-        el.style.opacity = String(p);
-        el.style.transform = `translate3d(0, ${((1 - p) * RISE).toFixed(1)}px, 0)`;
-      }
+    const p = clamp01((scrollY - startY) / Math.max(endY - startY, 1));
+    if (it.p === p) continue;
+    it.p = p;
+
+    const el = it.el;
+    if (p === 1) {
+      el.style.opacity = '';
+      el.style.transform = '';
+      el.style.transition = ''; // devolve a transition do CSS → hover volta a ser suave
+      el.classList.add('is-visible');
+    } else {
+      el.classList.remove('is-visible');
+      el.style.transition = 'none'; // durante a revelação é a rolagem que manda
+      el.style.opacity = String(p);
+      el.style.transform = `translate3d(0, ${((1 - p) * RISE).toFixed(1)}px, 0)`;
     }
   }
 }
@@ -147,9 +149,15 @@ function measure() {
   const scrollY = window.scrollY;
   // guardado aqui pra não fazer leitura de layout a cada frame da rolagem
   maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0);
-  for (const g of groups) {
-    g.top = g.section.getBoundingClientRect().top + scrollY;
-    g.height = g.section.offsetHeight;
+
+  let prevTop = null;
+  let order = 0;
+  for (const it of items) {
+    it.top = it.el.getBoundingClientRect().top + scrollY;
+    // itens consecutivos na mesma altura formam uma "linha" (grid/flex lado a lado)
+    order = prevTop !== null && Math.abs(it.top - prevTop) <= 8 ? order + 1 : 0;
+    prevTop = it.top;
+    it.order = order;
   }
   paint();
 }
@@ -162,7 +170,7 @@ const onScrollPaint = () => {
 };
 
 if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  groups.forEach((g) => g.items.forEach((el) => el.classList.add('is-visible')));
+  items.forEach((it) => it.el.classList.add('is-visible'));
 } else {
   initHeroSequence();
 
